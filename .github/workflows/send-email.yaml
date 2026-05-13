@@ -5,60 +5,44 @@ on:
     - cron: '0 13 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions: 
-      contents: write 
+    timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@v6
 
       - name: Use Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Last successful run
-        id: last_success
-        run: echo "LAST_SUCCESS=$(gh api -XGET repos/${{ github.repository_owner }}/${{ github.event.repository.name }}/actions/workflows/send-email.yaml/runs --jq '.workflow_runs[0].run_started_at' -F status=success -F per_page=1)" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          node-version: 24
+          cache: npm
 
       - run: npm ci
 
       - name: Create enriched briefing
         run: node scripts/daily-briefing.mjs
 
-      - name: Check email exists
-        id: check_email
-        run: |
-          if [ -f dist/email.html ]; then
-            echo "files_exists=true" >> $GITHUB_OUTPUT
-            echo "### New update email :inbox_tray:" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "### No updates since last run :zzz:" >> $GITHUB_STEP_SUMMARY
-          fi
       - name: Commit updated Obsidian notes
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: Update daily macro briefing
-          file_pattern: '00 - Home/Latest Daily Briefing.md 01 - Daily Briefings/*.md dist/briefing.md'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "00 - Home/Latest Daily Briefing.md" "01 - Daily Briefings" "dist/briefing.md"
+          git diff --cached --quiet || git commit -m "Update daily macro briefing"
+          git push
 
       - name: Send email
-        if: steps.check_email.outputs.files_exists == 'true'
         uses: dawidd6/action-send-mail@v3.12.0
         with:
           server_address: ${{ vars.SMTP_SERVER }}
           server_port: ${{ vars.SMTP_PORT }}
-
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-
-          subject: Daily Briefing
+          subject: Daily Macro Briefing
           to: ${{ secrets.MAIL_TO }}
           from: ${{ secrets.SMTP_USERNAME }}
-
           html_body: file://dist/email.html
