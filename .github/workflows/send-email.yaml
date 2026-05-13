@@ -9,7 +9,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions: read-all
+    permissions: 
+      contents: write 
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -28,8 +29,8 @@ jobs:
 
       - run: npm ci
 
-      - name: Create email
-        run: npm run email actionUrl=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} lastSuccess=${{ steps.last_success.outputs.LAST_SUCCESS }}
+      - name: Create enriched briefing
+        run: node scripts/daily-briefing.mjs
 
       - name: Check email exists
         id: check_email
@@ -40,6 +41,11 @@ jobs:
           else
             echo "### No updates since last run :zzz:" >> $GITHUB_STEP_SUMMARY
           fi
+      - name: Commit updated Obsidian notes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Update daily macro briefing
+          file_pattern: '00 - Home/Latest Daily Briefing.md 01 - Daily Briefings/*.md dist/briefing.md'
 
       - name: Send email
         if: steps.check_email.outputs.files_exists == 'true'
@@ -51,7 +57,7 @@ jobs:
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
 
-          subject: RSS to Email
+          subject: Daily Briefing
           to: ${{ secrets.MAIL_TO }}
           from: ${{ secrets.SMTP_USERNAME }}
 
