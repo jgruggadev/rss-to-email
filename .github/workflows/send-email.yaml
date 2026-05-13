@@ -31,9 +31,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "00 - Home/Latest Daily Briefing.md" "01 - Daily Briefings" "dist/briefing.md"
-          git diff --cached --quiet || git commit -m "Update daily macro briefing"
-          git push
+          git add "00 - Home/Latest Daily Briefing.md"
+          git add "01 - Daily Briefings"
+          if git diff --cached --quiet; then
+            echo "No Obsidian briefing changes to commit."
+          else
+            git commit -m "Update daily macro briefing"
+            git push
+          fi
 
       - name: Send email
         uses: dawidd6/action-send-mail@v3.12.0
